@@ -157,3 +157,5 @@ should target this file (`CHANGELOG_NEXT`).
 * Implemented core interfaces for `Data.Singleton`
 * `fromList` and `toList` for `Data.Vect` rewritten so that they are optimized away during codegen.
 * Reduced the fixities of `Data.Record` operators `:-:`, `:-` and `:+` to 0.
+* On macOS, `System.system` calls from several threads now run at the same time.
+  Before, only one command could run at a time.
