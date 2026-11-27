@@ -161,3 +161,5 @@ should target this file (`CHANGELOG_NEXT`).
   no longer stop other threads while they wait. They were plain C calls, and a
   thread blocked in one made every other thread wait at its next garbage
   collection until the call returned.
+* On macOS, `System.system` calls from several threads now run at the same time.
+  Before, only one command could run at a time.
