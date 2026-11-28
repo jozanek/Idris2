@@ -27,13 +27,17 @@ libc : (fn : String) -> String
 libc fn = "C:" ++ fn ++ ", libc 6"
 
 -- `sleep` and `usleep` need to be tied to `blodwen-[u]sleep` for threading
--- reasons (see support/racket/support.rkt)
+-- reasons: on Racket a blocking C call stops all threads (see
+-- support/racket/support.rkt), and on Chez it stops every other thread at its
+-- next garbage collection (see support/chez/support.ss).
 
 %foreign "scheme,racket:blodwen-sleep"
+         "scheme,chez:blodwen-sleep"
          supportC "idris2_sleep"
 prim__sleep : Int -> PrimIO ()
 
 %foreign "scheme,racket:blodwen-usleep"
+         "scheme,chez:blodwen-usleep"
          supportC "idris2_usleep"
 prim__usleep : Int -> PrimIO ()
 
@@ -197,15 +201,26 @@ unsetEnv var
    = do ok <- primIO $ prim__unsetEnv var
         pure $ ok == 0
 
-%foreign "C:idris2_system, libidris2_support, idris_system.h"
+-- A command can take a long time, so this uses `C__collect_safe` to keep other
+-- threads running on Chez (see `sleep` above). Chez does not allow `String`
+-- arguments in such a call. So the command is copied to C memory first, and
+-- `idris2_systemCopy` frees the copy.
+%foreign "C:idris2_copyCommand, libidris2_support, idris_system.h"
+         "node:lambda: command => command"
+prim__copyCommand : String -> PrimIO AnyPtr
+
+%foreign "C__collect_safe:idris2_systemCopy, libidris2_support, idris_system.h"
+         "C:idris2_systemCopy, libidris2_support, idris_system.h"
          supportNode "spawnSync"
-prim__system : String -> PrimIO Int
+prim__system : AnyPtr -> PrimIO Int
 
 ||| Execute a shell command, returning its termination status or -1 if an error
 ||| occurred.
 export
 system : HasIO io => String -> io Int
-system cmd = primIO (prim__system cmd)
+system cmd = do
+  command <- primIO (prim__copyCommand cmd)
+  primIO (prim__system command)
 
 namespace Escaped
   export

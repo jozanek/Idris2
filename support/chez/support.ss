@@ -532,6 +532,9 @@
           (condition-wait (future-internal-signal future) mutex))
       (future-internal-result future))))
 
+;; Chez's own `sleep` deactivates the calling thread while it waits, so other
+;; threads can still collect garbage. A plain C foreign call that blocks makes
+;; every other thread wait at its next collection until the call returns.
 (define (blodwen-sleep s) (sleep (make-time 'time-duration 0 s)))
 (define (blodwen-usleep s)
   (let ((sec (div s 1000000))
