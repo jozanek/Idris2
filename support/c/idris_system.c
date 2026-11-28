@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef _WIN32
 #include <sys/wait.h>
@@ -117,4 +118,18 @@ int idris2_system(const char *command) {
 #else
   return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 #endif
+}
+
+// A Chez call that lets other threads run cannot take a string. So the caller
+// copies the command first, and `idris2_systemCopy` frees the copy.
+void *idris2_copyCommand(const char *command) {
+  return strdup(command);
+}
+
+int idris2_systemCopy(void *command) {
+  if (command == NULL) // the copy failed
+    return -1;
+  int status = idris2_system(command);
+  free(command);
+  return status;
 }

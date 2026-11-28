@@ -201,18 +201,26 @@ unsetEnv var
    = do ok <- primIO $ prim__unsetEnv var
         pure $ ok == 0
 
--- On Chez, `blodwen-system` lets other threads keep running while the command
--- runs (see `sleep` above).
-%foreign "scheme,chez:blodwen-system"
-         "C:idris2_system, libidris2_support, idris_system.h"
+-- A command can take a long time, so this uses `C__collect_safe` to keep other
+-- threads running on Chez (see `sleep` above). Chez does not allow `String`
+-- arguments in such a call. So the command is copied to C memory first, and
+-- `idris2_systemCopy` frees the copy.
+%foreign "C:idris2_copyCommand, libidris2_support, idris_system.h"
+         "node:lambda: command => command"
+prim__copyCommand : String -> PrimIO AnyPtr
+
+%foreign "C__collect_safe:idris2_systemCopy, libidris2_support, idris_system.h"
+         "C:idris2_systemCopy, libidris2_support, idris_system.h"
          supportNode "spawnSync"
-prim__system : String -> PrimIO Int
+prim__system : AnyPtr -> PrimIO Int
 
 ||| Execute a shell command, returning its termination status or -1 if an error
 ||| occurred.
 export
 system : HasIO io => String -> io Int
-system cmd = primIO (prim__system cmd)
+system cmd = do
+  command <- primIO (prim__copyCommand cmd)
+  primIO (prim__system command)
 
 namespace Escaped
   export
